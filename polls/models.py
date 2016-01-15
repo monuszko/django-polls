@@ -7,6 +7,7 @@ from django.utils import timezone
 class Poll(models.Model):
     question = models.CharField(max_length=200)
     pub_date = models.DateTimeField('date published')
+    visible = models.NullBooleanField()
 
     def __unicode__(self):  # Python 3: def __str__(self):
         return self.question
