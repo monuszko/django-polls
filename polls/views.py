@@ -1,4 +1,6 @@
 from django.core.urlresolvers import reverse
+from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -25,6 +27,10 @@ class DetailView(generic.DetailView):
     model = Poll
     template_name = 'polls/detail.html'
 
+    @method_decorator(login_required)
+    def dispatch(self, *args, **kwargs):
+        return super(DetailView, self).dispatch(*args, **kwargs)
+
     def get_queryset(self):
         """
         Excludes any polls that aren't published yet.
@@ -32,11 +38,13 @@ class DetailView(generic.DetailView):
         return Poll.objects.filter(pub_date__lte=timezone.now())
 
 
+
 class ResultsView(generic.DetailView):
     model = Poll
     template_name = 'polls/results.html'
 
 
+@login_required
 def vote(request, poll_id):
     p = get_object_or_404(Poll, pk=poll_id)
     try:

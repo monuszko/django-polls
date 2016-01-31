@@ -6,4 +6,6 @@
 {% endfor %}
 </ul>
 
-<a href="{% url 'polls:detail' poll.id %}">Vote again?</a>
+{% if user.is_authenticated %}
+<a href="{% url 'polls:detail' poll.id %}">Vote ?</a>
+{% endif %}

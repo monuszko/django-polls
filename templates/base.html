@@ -4,9 +4,9 @@
     <div id="userbar">
     {% block top-fixed %}
         {% if user.is_authenticated %}
-        Logged in as <span id="user">{{ user }}</span> | | <a href="{% url 'logout' %}{% block logout-redirect %}?next={{ request.path }}{% endblock %}">Logout</a>
+        Logged in as <span id="user">{{ user }}</span> | <a href="{% url 'logout' %}{% block logout-redirect %}?next={{ request.path }}{% endblock %}">Logout</a>
         {% else %}
-        You are not logged in. | <a href="{% url 'login' %}?next={{ path }}">Log in</a>
+        You are not logged in. | <a href="{% url 'login' %}?next={{ request.path }}">Log in</a>
         {% endif %}
     {% endblock top-fixed %}
     </div>
