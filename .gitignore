@@ -5,4 +5,4 @@
 .project
 
 manage.py
-mysite/
+mysite/db.sqlite3
