@@ -1,4 +1,8 @@
 *.pyc
+*.swp
 .DS_Store
 .git
 .project
+
+manage.py
+mysite/
