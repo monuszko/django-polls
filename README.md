@@ -17,6 +17,10 @@ Getting Started
 7. Run the server: ``python manage.py runserver``
 8. Open website in browser at ``http://localhost:8000/polls`` or admin at
    ``http://localhost:8000/admin`` (admin:admin)
+9. Use admin to set your Site's domain name for sending (registration) emails.
+   Example: ``localhost:8000``
+10. Set the ``EMAIL_HOST_PASSWORD`` environment variable (in ``.bashrc``,
+    ``bin/activate``, etc.)
 
 ### After initial setup ###
 1. Activate the virtualenv: ``source env/bin/activate``
