@@ -1,4 +1,9 @@
+<!DOCTYPE html>
+<html>
+<head>
 {% block title %}{% endblock %}
+{% block js %}{% endblock %}
+</head>
 
 {% block userbar %}
     <div id="userbar">
@@ -13,5 +18,8 @@
 {% endblock userbar %}
 
 
+<body>
 {% block content  %}
 {% endblock content %}
+</body>
+</html>

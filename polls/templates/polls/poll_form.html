@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block js %}
+{% endblock js %}
+
+{% block content %}
+
+<form method="POST">
+  {% csrf_token %}
+  {{ form.as_p }}
+    <p>Answers:</p>
+  {% for choice_form in formset %}
+    <p>{{ choice_form.choice_text }}</p>
+  {% endfor %}
+  {{ formset.management_form }}
+  <input type="submit" value="save" />
+</form>
+
+{% endblock content %}

@@ -5,8 +5,10 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import generic
+from django.forms.models import inlineformset_factory
 
 from .models import Choice, Poll, Vote
+from .forms import PollForm
 
 
 class IndexView(generic.ListView):
@@ -68,3 +70,27 @@ def vote(request, poll_id):
         # with POST data. This prevents data from being posted twice if a
         # user hits the Back button.
         return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+
+
+@login_required
+def create_poll(request, template='polls/poll_form.html'):
+    ChoiceFormSet = inlineformset_factory(Poll, Choice, fields=('choice_text',), extra=5)
+
+    if request.method=='POST':
+        form = PollForm(request.POST)
+        p = Poll()
+        formset = ChoiceFormSet(request.POST, instance=p)
+
+        if form.is_valid():
+            p = form.save()
+            formset.instance = p
+            if formset.is_valid():
+                formset.save()
+            return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+    else:
+        form = PollForm()
+        p = Poll()
+        formset = ChoiceFormSet(instance=p)
+
+    return render(request, template, {'form': form, 'formset': formset})
+
