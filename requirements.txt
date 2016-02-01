@@ -1,4 +1,6 @@
 Django==1.9.1
 argparse==1.2.1
+django-contrib-comments==1.6.2
+django-registration-redux==1.3
 pytz==2015.7
 wsgiref==0.1.2
