@@ -1,13 +1,17 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
 {% block title %}{% endblock %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}" />
 {% block js %}{% endblock %}
 </head>
 
 {% block userbar %}
     <div id="userbar">
     {% block top-fixed %}
+        <a href="{% url 'polls:index' %}">index</a> | 
+        <a href="{% url 'polls:create' %}">Create poll</a> | 
         {% if user.is_authenticated %}
         Logged in as <span id="user">{{ user }}</span> | <a href="{% url 'logout' %}{% block logout-redirect %}?next={{ request.path }}{% endblock %}">Logout</a>
         {% else %}
