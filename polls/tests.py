@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 
 from .models import Poll
-
+from .forms import PollForm, ChoiceFormSet
 
 class BaseTestCase(TestCase):
 
@@ -29,6 +29,25 @@ class BaseTestCase(TestCase):
             question=question,
             pub_date=timezone.now() + datetime.timedelta(days=days)
         )
+
+
+class FormTests(TestCase):
+
+    def test_pollform_with_question(self):
+        """
+        A pollform should be accepted if it's question is filled in.
+        """
+        form_data = {'question': "Jak jest po staroegipsku 'krokodyl' ?"}
+        form = PollForm(data=form_data)
+        self.assertTrue(form.is_valid())
+
+    def test_pollform_without_question(self):
+        """
+        A pollform should be rejected if it's question is blank.
+        """
+        form_data = {'question': ""}
+        form = PollForm(data=form_data)
+        self.assertFalse(form.is_valid())
 
 
 class PollMethodTests(BaseTestCase):

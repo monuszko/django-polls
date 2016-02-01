@@ -1,4 +1,5 @@
 from django.forms import ModelForm
+from django.forms.models import inlineformset_factory
 
 from .models import Poll, Choice
 
@@ -8,3 +9,5 @@ class PollForm(ModelForm):
         model = Poll
         fields = ('question',)
 
+
+ChoiceFormSet = inlineformset_factory(Poll, Choice, fields=('choice_text',), extra=5)

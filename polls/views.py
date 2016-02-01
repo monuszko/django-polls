@@ -5,10 +5,9 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import generic
-from django.forms.models import inlineformset_factory
 
 from .models import Choice, Poll, Vote
-from .forms import PollForm
+from .forms import PollForm, ChoiceFormSet
 
 
 class IndexView(generic.ListView):
@@ -81,7 +80,6 @@ def vote(request, poll_id):
 
 @login_required
 def create_poll(request, template='polls/poll_form.html'):
-    ChoiceFormSet = inlineformset_factory(Poll, Choice, fields=('choice_text',), extra=5)
 
     if request.method=='POST':
         form = PollForm(request.POST)
