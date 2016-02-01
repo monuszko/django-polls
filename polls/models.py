@@ -9,6 +9,7 @@ class Poll(models.Model):
     question = models.CharField(max_length=200)
     pub_date = models.DateTimeField('date published', default=timezone.now)
     visible = models.NullBooleanField()
+    created_by = models.ForeignKey(User, default=0)
 
     def __unicode__(self):  # Python 3: def __str__(self):
         return self.question
@@ -25,7 +26,6 @@ class Poll(models.Model):
 class Choice(models.Model):
     poll = models.ForeignKey(Poll)
     choice_text = models.CharField(max_length=200)
-    #votes = models.IntegerField(default=0)
 
     def __unicode__(self):  # Python 3: def __str__(self):
         return self.choice_text
@@ -36,6 +36,9 @@ class Vote(models.Model):
     user = models.ForeignKey(User)
 
     def __unicode__(self):  # Python 3: def __str__(self):
-        return '%s %s %s' (self.user, self.choice.poll.question,
-                self.choice.choice_text)
+        return u'{0}: {1} ({2})'.format(
+                self.choice.poll.question,
+                self.choice.choice_text,
+                str(self.user),
+                )
 

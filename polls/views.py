@@ -50,11 +50,18 @@ class ResultsView(generic.DetailView):
 @login_required
 def vote(request, poll_id):
     p = get_object_or_404(Poll, pk=poll_id)
+
+    error_message = None
     if Vote.objects.filter(user=request.user, choice__poll=p).exists():
+        error_message = "Voting twice is not allowed."
+    elif p.created_by == request.user:
+        error_message = "You can't vote in your own poll!"
+    if error_message:
         return render(request, 'polls/detail.html', {
         'poll': p,
-        'error_message': "Voting twice is not allowed.",
+        'error_message': error_message,
         })
+
     try:
         selected_choice = p.choice_set.get(pk=request.POST['choice'])
     except (KeyError, Choice.DoesNotExist):
@@ -82,10 +89,13 @@ def create_poll(request, template='polls/poll_form.html'):
         formset = ChoiceFormSet(request.POST, instance=p)
 
         if form.is_valid():
-            p = form.save()
+            p = form.save(commit=False)
+            p.created_by = request.user
+            p.save()
             formset.instance = p
             if formset.is_valid():
                 formset.save()
+                
             return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
     else:
         form = PollForm()

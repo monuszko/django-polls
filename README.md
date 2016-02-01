@@ -9,17 +9,14 @@ Getting Started
 ### Initial Setup ###
 1. Make a new virtualenv: ``virtualenv env``
 2. Activate the virtualenv: ``source env/bin/activate``
-3. Install Django: ``pip install Django``
-4. Put the ``polls/`` directory inside your project directory. If you don't
-   have one, ``django-admin.py startproject mysite``.
-5. Edit ``mysite/settings.py`` and put ``polls`` in ``INSTALLED_APPS``. 
-6. Edit ``mysite/settings.py:36`` to match your timezone
-7. Run the server: ``python manage.py runserver``
-8. Open website in browser at ``http://localhost:8000/polls`` or admin at
+3. Install required packages: ``pip install -r requirements.txt``
+4. Edit ``mysite/settings.py:36`` to match your timezone
+5. Run the server: ``python manage.py runserver``
+6. Open website in browser at ``http://localhost:8000/polls`` or admin at
    ``http://localhost:8000/admin`` (admin:admin)
-9. Use admin to set your Site's domain name for sending (registration) emails.
+7. Use admin to set your Site's domain name for sending (registration) emails.
    Example: ``localhost:8000``
-10. Set the ``EMAIL_HOST_PASSWORD`` environment variable (in ``.bashrc``,
+8. Set the ``EMAIL_HOST_PASSWORD`` environment variable (in ``.bashrc``,
     ``bin/activate``, etc.)
 
 ### After initial setup ###
