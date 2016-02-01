@@ -17,7 +17,7 @@ Getting Started
 7. Use admin to set your Site's domain name for sending (registration) emails.
    Example: ``localhost:8000``
 8. Set the ``EMAIL_HOST_PASSWORD`` environment variable (in ``.bashrc``,
-    ``bin/activate``, etc.)
+    ``bin/activate``, etc.), and other email-related settings.
 
 ### After initial setup ###
 1. Activate the virtualenv: ``source env/bin/activate``

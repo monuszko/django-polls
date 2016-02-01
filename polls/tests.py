@@ -3,11 +3,35 @@ import datetime
 from django.core.urlresolvers import reverse
 from django.utils import timezone
 from django.test import TestCase
+from django.contrib.auth.models import User
 
 from .models import Poll
 
 
-class PollMethodTests(TestCase):
+class BaseTestCase(TestCase):
+
+    def setUp(self):
+        self.u1 = User.objects.create(
+            password='0d7ef89790c560955c04b11fa01a2af76c34add5',
+            is_superuser=False, username='borsuk',
+            first_name='Borsuk', last_name='Euroazjatycki',
+            email='borsuk@example.com', is_staff=False, is_active=True,
+            date_joined=datetime.datetime(2008, 5, 30, 13, 20, 10)
+            )
+
+    def create_poll(self, question, days):
+        """
+        Creates a poll with the given `question` published the given number of
+        `days` offset to now (negative for polls published in the past,
+        positive for polls that have yet to be published).
+        """
+        return Poll.objects.create(
+            question=question,
+            pub_date=timezone.now() + datetime.timedelta(days=days)
+        )
+
+
+class PollMethodTests(BaseTestCase):
 
     def test_was_published_recently_with_future_poll(self):
         """
@@ -34,19 +58,8 @@ class PollMethodTests(TestCase):
         self.assertEqual(recent_poll.was_published_recently(), True)
 
 
-def create_poll(question, days):
-    """
-    Creates a poll with the given `question` published the given number of
-    `days` offset to now (negative for polls published in the past,
-    positive for polls that have yet to be published).
-    """
-    return Poll.objects.create(
-        question=question,
-        pub_date=timezone.now() + datetime.timedelta(days=days)
-    )
+class PollIndexViewTests(BaseTestCase):
 
-
-class PollViewTests(TestCase):
     def test_index_view_with_no_polls(self):
         """
         If no polls exist, an appropriate message should be displayed.
@@ -60,7 +73,7 @@ class PollViewTests(TestCase):
         """
         Polls with a pub_date in the past should be displayed on the index page.
         """
-        create_poll(question="Past poll.", days=-30)
+        self.create_poll(question="Past poll.", days=-30)
         response = self.client.get(reverse('polls:index'))
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
@@ -72,7 +85,7 @@ class PollViewTests(TestCase):
         Polls with a pub_date in the future should not be displayed on the
         index page.
         """
-        create_poll(question="Future poll.", days=30)
+        self.create_poll(question="Future poll.", days=30)
         response = self.client.get(reverse('polls:index'))
         self.assertContains(response, "No polls are available.", status_code=200)
         self.assertQuerysetEqual(response.context['latest_poll_list'], [])
@@ -82,8 +95,8 @@ class PollViewTests(TestCase):
         Even if both past and future polls exist, only past polls should be
         displayed.
         """
-        create_poll(question="Past poll.", days=-30)
-        create_poll(question="Future poll.", days=30)
+        self.create_poll(question="Past poll.", days=-30)
+        self.create_poll(question="Future poll.", days=30)
         response = self.client.get(reverse('polls:index'))
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
@@ -94,8 +107,8 @@ class PollViewTests(TestCase):
         """
         The polls index page may display multiple polls.
         """
-        create_poll(question="Past poll 1.", days=-30)
-        create_poll(question="Past poll 2.", days=-5)
+        self.create_poll(question="Past poll 1.", days=-30)
+        self.create_poll(question="Past poll 2.", days=-5)
         response = self.client.get(reverse('polls:index'))
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
@@ -103,13 +116,16 @@ class PollViewTests(TestCase):
         )
 
 
-class PollIndexDetailTests(TestCase):
+class PollDetailViewTests(BaseTestCase):
+    
     def test_detail_view_with_a_future_poll(self):
         """
         The detail view of a poll with a pub_date in the future should
         return a 404 not found.
         """
-        future_poll = create_poll(question='Future poll.', days=5)
+        self.client.force_login(self.u1)
+
+        future_poll = self.create_poll(question='Future poll.', days=5)
         response = self.client.get(reverse('polls:detail', args=(future_poll.id,)))
         self.assertEqual(response.status_code, 404)
 
@@ -118,6 +134,38 @@ class PollIndexDetailTests(TestCase):
         The detail view of a poll with a pub_date in the past should display
         the poll's question.
         """
-        past_poll = create_poll(question='Past Poll.', days=-5)
+        self.client.force_login(self.u1)
+
+        past_poll = self.create_poll(question='Past Poll.', days=-5)
         response = self.client.get(reverse('polls:detail', args=(past_poll.id,)))
         self.assertContains(response, past_poll.question, status_code=200)
+
+    def test_detail_view_without_login(self):
+        """
+        The detail view without login should return a 302 redirect.
+        """
+
+        future_poll = self.create_poll(question='Future poll.', days=5)
+        response = self.client.get(reverse('polls:detail', args=(future_poll.id,)))
+        self.assertEqual(response.status_code, 302)
+
+
+class PollCreateViewTests(BaseTestCase):
+
+    def test_create_poll_view_get_without_login(self):
+        """
+        The create view without login should return a 302 redirect.
+        """
+
+        response = self.client.get(reverse('polls:create'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_create_poll_view_get_with_login(self):
+        """
+        The create view without login should return a 302 redirect.
+        """
+
+        self.client.force_login(self.u1)
+
+        response = self.client.get(reverse('polls:create'))
+        self.assertEqual(response.status_code, 200)

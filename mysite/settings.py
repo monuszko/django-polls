@@ -3,7 +3,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 
 def get_environment_variable(var_name):
-    """Get the environment variable or return exception."""
+    """Get the environment variable or return exception. (2 Scoops of Django)"""
     try:
         return os.environ[var_name]
     except KeyError:
@@ -166,7 +166,6 @@ INSTALLED_APPS = (
 )
 
 ACCOUNT_ACTIVATION_DAYS = 2
-#EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
