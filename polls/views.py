@@ -78,27 +78,43 @@ def vote(request, poll_id):
         return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
 
 
-@login_required
-def create_poll(request, template='polls/poll_form.html'):
+class PollCreate(generic.edit.CreateView):
 
-    if request.method=='POST':
-        form = PollForm(request.POST)
-        p = Poll()
-        formset = ChoiceFormSet(request.POST, instance=p)
+    model = Poll
+    form_class = PollForm
+    template_name = 'polls/poll_form.html'
+    object = None
 
-        if form.is_valid():
-            p = form.save(commit=False)
-            p.created_by = request.user
-            p.save()
-            formset.instance = p
-            if formset.is_valid():
-                formset.save()
-                
-            return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
-    else:
-        form = PollForm()
-        p = Poll()
-        formset = ChoiceFormSet(instance=p)
+    def form_valid(self, poll_form, choice_formset):
+        poll = poll_form.save(commit=False)
+        poll.created_by = self.request.user
+        poll.save()
+        choice_formset.instance = poll
+        choice_formset.save()
+        return super(PollCreate, self).form_valid(poll_form)
 
-    return render(request, template, {'form': form, 'formset': formset})
+    def form_invalid(self, poll_form, choice_formset):
+        return self.render_to_response(self.get_context_data(form=poll_form,
+                                                       formset=choice_formset))
 
+    def post(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        poll_form = self.get_form(form_class)
+        choice_formset = ChoiceFormSet(self.request.POST)
+
+        if poll_form.is_valid() and choice_formset.is_valid():
+            return self.form_valid(poll_form, choice_formset)
+        return self.form_invalid(poll_form, choice_formset)
+
+    def get(self, request, *args, **kwargs):
+        form_class = self.get_form_class()
+        poll_form = self.get_form(form_class)
+        choice_formset = ChoiceFormSet()
+        return self.render_to_response(self.get_context_data(form=poll_form,
+                                                       formset=choice_formset))
+    def get_success_url(self):
+        return self.object.get_absolute_url()
+
+    @method_decorator(login_required)
+    def dispatch(self, *args, **kwargs):
+        return super(PollCreate, self).dispatch(*args, **kwargs)

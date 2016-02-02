@@ -3,6 +3,7 @@ import datetime
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
 
 
 class Poll(models.Model):
@@ -17,6 +18,9 @@ class Poll(models.Model):
     def was_published_recently(self):
         now = timezone.now()
         return now - datetime.timedelta(days=1) <= self.pub_date < now
+    
+    def get_absolute_url(self):
+        return reverse('polls:results', args=(self.id,))
 
     was_published_recently.admin_order_field = 'pub_date'
     was_published_recently.boolean = True
