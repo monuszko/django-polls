@@ -1,10 +1,11 @@
-from django.core.urlresolvers import reverse
+from django.core.urlresolvers import reverse, reverse_lazy
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views import generic
+from django.http import Http404
 
 from .models import Choice, Poll, Vote
 from .forms import PollForm, ChoiceFormSet
@@ -118,3 +119,16 @@ class PollCreate(generic.edit.CreateView):
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
         return super(PollCreate, self).dispatch(*args, **kwargs)
+
+
+class PollDelete(generic.DeleteView):
+    model = Poll
+    success_url = reverse_lazy('polls:index')
+
+    @method_decorator(login_required)
+    def dispatch(self, *args, **kwargs):
+        poll = self.get_object()
+        if poll.created_by != self.request.user:
+            raise Http404
+
+        return super(PollDelete, self).dispatch(*args, **kwargs)
