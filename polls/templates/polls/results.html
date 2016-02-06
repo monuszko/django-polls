@@ -15,6 +15,7 @@
     <a href="{% url 'polls:detail' poll.id %}">Vote ?</a>
     {% else %}
     <a href="{% url 'polls:delete' poll.id %}">Delete ?</a>
+    <a href="{% url 'polls:update' poll.id %}">Update ?</a>
     {% endif %}
 {% endif %}
 

@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<form action="" method="POST">{% csrf_token %}
+    {{ form.as_p }}
+  <p>Answers:</p>
+  {{ formset.management_form }}
+  {% for choice_form in formset %}
+    {{ choice_form.id }}
+    <p>{{ choice_form.choice_text }}{{ choice_form.errors }}</p>
+  {% endfor %}
+    <input type="submit" value="Update" />
+</form>
+{% endblock content %}

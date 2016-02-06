@@ -41,7 +41,6 @@ class DetailView(generic.DetailView):
         return Poll.objects.filter(pub_date__lte=timezone.now())
 
 
-
 class ResultsView(generic.DetailView):
     model = Poll
     template_name = 'polls/results.html'
@@ -79,46 +78,29 @@ def vote(request, poll_id):
         return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
 
 
-class PollCreate(generic.edit.CreateView):
+@login_required
+def create_poll(request, template='polls/poll_form.html'):
 
-    model = Poll
-    form_class = PollForm
-    template_name = 'polls/poll_form.html'
-    object = None
+    if request.method=='POST':
+        form = PollForm(request.POST)
+        p = Poll()
+        formset = ChoiceFormSet(request.POST)
 
-    def form_valid(self, poll_form, choice_formset):
-        poll = poll_form.save(commit=False)
-        poll.created_by = self.request.user
-        poll.save()
-        choice_formset.instance = poll
-        choice_formset.save()
-        return super(PollCreate, self).form_valid(poll_form)
+        if form.is_valid() and formset.is_valid():
+            p = form.save(commit=False)
+            p.created_by = request.user
+            p.save()
 
-    def form_invalid(self, poll_form, choice_formset):
-        return self.render_to_response(self.get_context_data(form=poll_form,
-                                                       formset=choice_formset))
+            formset.instance = p
+            formset.save()
 
-    def post(self, request, *args, **kwargs):
-        form_class = self.get_form_class()
-        poll_form = self.get_form(form_class)
-        choice_formset = ChoiceFormSet(self.request.POST)
+            return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+    else:
+        form = PollForm()
+        p = Poll()
+        formset = ChoiceFormSet()
 
-        if poll_form.is_valid() and choice_formset.is_valid():
-            return self.form_valid(poll_form, choice_formset)
-        return self.form_invalid(poll_form, choice_formset)
-
-    def get(self, request, *args, **kwargs):
-        form_class = self.get_form_class()
-        poll_form = self.get_form(form_class)
-        choice_formset = ChoiceFormSet()
-        return self.render_to_response(self.get_context_data(form=poll_form,
-                                                       formset=choice_formset))
-    def get_success_url(self):
-        return self.object.get_absolute_url()
-
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(PollCreate, self).dispatch(*args, **kwargs)
+    return render(request, template, {'form': form, 'formset': formset})
 
 
 class PollDelete(generic.DeleteView):
@@ -132,3 +114,24 @@ class PollDelete(generic.DeleteView):
             raise Http404
 
         return super(PollDelete, self).dispatch(*args, **kwargs)
+
+
+@login_required
+def update_poll(request, pk):
+    poll = get_object_or_404(Poll, pk=pk)
+    if request.method == 'POST':
+        poll_form = PollForm(request.POST, instance=poll)
+        choice_formset = ChoiceFormSet(request.POST, instance=poll)
+        if poll_form.is_valid() and choice_formset.is_valid():
+            poll_form.save()
+            choice_formset.save()
+            return HttpResponseRedirect(reverse('polls:results', args=[pk]))
+    else:
+        poll_form = PollForm(instance=poll)
+        choice_formset = ChoiceFormSet(instance=poll)
+    return render(request, 'polls/update.html', {
+                                                 'form': poll_form,
+                                                 'formset': choice_formset
+                                                 })
+
+
