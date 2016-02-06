@@ -12,7 +12,7 @@
 
 {% if user.is_authenticated%}
     {% if user != poll.created_by %}
-    <a href="{% url 'polls:detail' poll.id %}">Vote ?</a>
+    <a href="{% url 'polls:voting_form' poll.id %}">Vote ?</a>
     {% else %}
     <a href="{% url 'polls:delete' poll.id %}">Delete ?</a>
     <a href="{% url 'polls:update' poll.id %}">Update ?</a>

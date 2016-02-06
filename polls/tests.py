@@ -135,37 +135,37 @@ class PollIndexViewTests(BaseTestCase):
         )
 
 
-class PollDetailViewTests(BaseTestCase):
+class VotingFormViewTests(BaseTestCase):
     
-    def test_detail_view_with_a_future_poll(self):
+    def test_voting_form_view_with_a_future_poll(self):
         """
-        The detail view of a poll with a pub_date in the future should
+        The voting_form view of a poll with a pub_date in the future should
         return a 404 not found.
         """
         self.client.force_login(self.u1)
 
         future_poll = self.create_poll(question='Future poll.', days=5)
-        response = self.client.get(reverse('polls:detail', args=(future_poll.id,)))
+        response = self.client.get(reverse('polls:voting_form', args=(future_poll.id,)))
         self.assertEqual(response.status_code, 404)
 
-    def test_detail_view_with_a_past_poll(self):
+    def test_voting_form_view_with_a_past_poll(self):
         """
-        The detail view of a poll with a pub_date in the past should display
+        The voting_form view of a poll with a pub_date in the past should display
         the poll's question.
         """
         self.client.force_login(self.u1)
 
         past_poll = self.create_poll(question='Past Poll.', days=-5)
-        response = self.client.get(reverse('polls:detail', args=(past_poll.id,)))
+        response = self.client.get(reverse('polls:voting_form', args=(past_poll.id,)))
         self.assertContains(response, past_poll.question, status_code=200)
 
-    def test_detail_view_without_login(self):
+    def test_voting_form_view_without_login(self):
         """
-        The detail view without login should return a 302 redirect.
+        The voting_form view without login should return a 302 redirect.
         """
 
         future_poll = self.create_poll(question='Future poll.', days=5)
-        response = self.client.get(reverse('polls:detail', args=(future_poll.id,)))
+        response = self.client.get(reverse('polls:voting_form', args=(future_poll.id,)))
         self.assertEqual(response.status_code, 302)
 
 

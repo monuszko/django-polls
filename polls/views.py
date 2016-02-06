@@ -26,13 +26,13 @@ class IndexView(generic.ListView):
 
 
 #TODO: Don't even display it for people who voted
-class DetailView(generic.DetailView):
+class VotingForm(generic.DetailView):
     model = Poll
-    template_name = 'polls/detail.html'
+    template_name = 'polls/voting_form.html'
 
     @method_decorator(login_required)
     def dispatch(self, *args, **kwargs):
-        return super(DetailView, self).dispatch(*args, **kwargs)
+        return super(VotingForm, self).dispatch(*args, **kwargs)
 
     def get_queryset(self):
         """
@@ -56,7 +56,7 @@ def vote(request, poll_id):
     elif p.created_by == request.user:
         error_message = "You can't vote in your own poll!"
     if error_message:
-        return render(request, 'polls/detail.html', {
+        return render(request, 'polls/voting_form.html', {
         'poll': p,
         'error_message': error_message,
         })
@@ -65,7 +65,7 @@ def vote(request, poll_id):
         selected_choice = p.choice_set.get(pk=request.POST['choice'])
     except (KeyError, Choice.DoesNotExist):
         # Redisplay the poll voting form.
-        return render(request, 'polls/detail.html', {
+        return render(request, 'polls/voting_form.html', {
             'poll': p,
             'error_message': "You didn't select a choice.",
         })
