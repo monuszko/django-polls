@@ -25,57 +25,52 @@ class IndexView(generic.ListView):
         ).order_by('-pub_date')[:5]
 
 
-#TODO: Don't even display it for people who voted
-class VotingForm(generic.DetailView):
-    model = Poll
-    template_name = 'polls/voting_form.html'
-
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(VotingForm, self).dispatch(*args, **kwargs)
-
-    def get_queryset(self):
-        """
-        Excludes any polls that aren't published yet.
-        """
-        return Poll.objects.filter(pub_date__lte=timezone.now())
-
-
 class ResultsView(generic.DetailView):
     model = Poll
     template_name = 'polls/results.html'
+    
+    def get_object(self):
+        return get_object_or_404(self.model.objects.public(), pk=self.kwargs['pk'])
+
+    def get_context_data(self, **kwargs):
+        context = super(ResultsView, self).get_context_data(**kwargs)
+        try:
+            your_vote = Vote.objects.get(
+                    user=self.request.user,
+                    choice__poll__pk=self.object.pk
+                    )
+            your_vote = your_vote.choice.choice_text
+        except (KeyError, Vote.DoesNotExist):
+            your_vote = ''
+
+        context['your_vote'] = your_vote
+        return context
 
 
 @login_required
-def vote(request, poll_id):
-    p = get_object_or_404(Poll, pk=poll_id)
+def vote(request, pk):
+    p = get_object_or_404(Poll.objects.public(), pk=pk)
 
     error_message = None
     if Vote.objects.filter(user=request.user, choice__poll=p).exists():
         error_message = "Voting twice is not allowed."
     elif p.created_by == request.user:
         error_message = "You can't vote in your own poll!"
-    if error_message:
-        return render(request, 'polls/voting_form.html', {
-        'poll': p,
-        'error_message': error_message,
-        })
 
-    try:
-        selected_choice = p.choice_set.get(pk=request.POST['choice'])
-    except (KeyError, Choice.DoesNotExist):
-        # Redisplay the poll voting form.
-        return render(request, 'polls/voting_form.html', {
-            'poll': p,
-            'error_message': "You didn't select a choice.",
-        })
-    else:
-        v = Vote(user=request.user, choice=selected_choice)
-        v.save()
-        # Always return an HttpResponseRedirect after successfully dealing
-        # with POST data. This prevents data from being posted twice if a
-        # user hits the Back button.
-        return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+    if request.method=='POST' and not error_message:
+        try:
+            selected_choice = p.choice_set.get(pk=request.POST['choice'])
+        except (KeyError, Choice.DoesNotExist):
+            error_message = "You didn't select a choice."
+        if not error_message:
+            v = Vote(user=request.user, choice=selected_choice)
+            v.save()
+            return HttpResponseRedirect(reverse('polls:results', args=(p.id,)))
+ 
+    return render(request, 'polls/voting_form.html', {
+    'poll': p,
+    'error_message': error_message,
+    })
 
 
 @login_required
