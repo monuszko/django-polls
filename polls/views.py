@@ -34,14 +34,17 @@ class ResultsView(generic.DetailView):
 
     def get_context_data(self, **kwargs):
         context = super(ResultsView, self).get_context_data(**kwargs)
-        try:
-            your_vote = Vote.objects.get(
-                    user=self.request.user,
-                    choice__poll__pk=self.object.pk
-                    )
-            your_vote = your_vote.choice.choice_text
-        except (KeyError, Vote.DoesNotExist):
-            your_vote = ''
+        your_vote = ''
+        if self.request.user.is_authenticated():
+            # Would break with AnonymousUser 
+            try:
+                your_vote = Vote.objects.get(
+                        user=self.request.user,
+                        choice__poll__pk=self.object.pk
+                        )
+                your_vote = your_vote.choice.choice_text
+            except (KeyError, Vote.DoesNotExist):
+                pass
 
         context['your_vote'] = your_vote
         return context

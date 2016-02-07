@@ -191,6 +191,8 @@ class ResultsViewTest(BaseTestCase):
         # assertRaises:
         with self.assertRaises(Http404):
             response = ResultsView.as_view()(request, pk=future_poll.pk)
+            self.assertContains(response, 'Update ?')
+            self.assertContains(response, 'Delete ?')
 
     def test_results_view_with_a_past_poll(self):
         """
@@ -204,6 +206,22 @@ class ResultsViewTest(BaseTestCase):
 
         response = ResultsView.as_view()(request, pk=past_poll.pk)
         self.assertContains(response, past_poll.question, status_code=200)
+        self.assertContains(response, 'Update ?')
+        self.assertContains(response, 'Delete ?')
+
+    def test_results_view_without_login(self):
+        """
+        The results view of a poll with a pub_date in the past should display
+        the poll's question.
+        """
+
+        poll = self.create_poll(question='A poll.', days=-5, creator=self.u1)
+
+        response = self.client.get(reverse('polls:results', args=[poll.pk]))
+        self.assertContains(response, poll.question, status_code=200)
+        self.assertNotContains(response, 'You voted:')
+        self.assertNotContains(response, 'Update ?')
+        self.assertNotContains(response, 'Delete ?')
 
 
 class PollCreateViewTests(BaseTestCase):
