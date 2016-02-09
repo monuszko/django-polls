@@ -3,7 +3,7 @@ import datetime
 from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.utils import timezone
-from django.test import TestCase, RequestFactory
+from django.test import TestCase
 from django.contrib.auth.models import User
 
 from .models import Poll
@@ -20,8 +20,6 @@ class BaseTestCase(TestCase):
             email='borsuk@example.com', is_staff=False, is_active=True,
             date_joined=datetime.datetime(2008, 5, 30, 13, 20, 10)
             )
-        
-        self.factory = RequestFactory()
 
     def create_poll(self, question, days, creator):
         """
@@ -44,6 +42,7 @@ class FormTests(TestCase):
         """
         form_data = {'question': "Jak jest po staroegipsku 'krokodyl' ?"}
         form = PollForm(data=form_data)
+
         self.assertTrue(form.is_valid())
 
     def test_pollform_without_question(self):
@@ -52,6 +51,7 @@ class FormTests(TestCase):
         """
         form_data = {'question': ""}
         form = PollForm(data=form_data)
+
         self.assertFalse(form.is_valid())
 
 
@@ -63,6 +63,7 @@ class PollMethodTests(BaseTestCase):
         pub_date is in the future
         """
         future_poll = Poll(pub_date=timezone.now() + datetime.timedelta(days=30))
+
         self.assertEqual(future_poll.was_published_recently(), False)
 
     def test_was_published_recently_with_old_poll(self):
@@ -71,6 +72,7 @@ class PollMethodTests(BaseTestCase):
         is older than 1 day
         """
         old_poll = Poll(pub_date=timezone.now() - datetime.timedelta(days=30))
+
         self.assertEqual(old_poll.was_published_recently(), False)
 
     def test_was_published_recently_with_recent_poll(self):
@@ -79,6 +81,7 @@ class PollMethodTests(BaseTestCase):
         is within the last day
         """
         recent_poll = Poll(pub_date=timezone.now() - datetime.timedelta(hours=1))
+
         self.assertEqual(recent_poll.was_published_recently(), True)
 
 
@@ -89,6 +92,7 @@ class PollIndexViewTests(BaseTestCase):
         If no polls exist, an appropriate message should be displayed.
         """
         response = self.client.get(reverse('polls:index'))
+
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "No polls are available.")
         self.assertQuerysetEqual(response.context['latest_poll_list'], [])
@@ -99,6 +103,7 @@ class PollIndexViewTests(BaseTestCase):
         """
         self.create_poll(question="Past poll.", days=-30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
+
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
             ['<Poll: Past poll.>']
@@ -111,6 +116,7 @@ class PollIndexViewTests(BaseTestCase):
         """
         self.create_poll(question="Future poll.", days=30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
+
         self.assertContains(response, "No polls are available.", status_code=200)
         self.assertQuerysetEqual(response.context['latest_poll_list'], [])
 
@@ -122,6 +128,7 @@ class PollIndexViewTests(BaseTestCase):
         self.create_poll(question="Past poll.", days=-30, creator=self.u1)
         self.create_poll(question="Future poll.", days=30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
+
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
             ['<Poll: Past poll.>']
@@ -134,6 +141,7 @@ class PollIndexViewTests(BaseTestCase):
         self.create_poll(question="Past poll 1.", days=-30, creator=self.u1)
         self.create_poll(question="Past poll 2.", days=-5, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
+
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
             ['<Poll: Past poll 2.>', '<Poll: Past poll 1.>']
@@ -141,6 +149,7 @@ class PollIndexViewTests(BaseTestCase):
 
 
 class VotingFormViewTests(BaseTestCase):
+    #TODO: test POST
     
     def test_voting_form_view_with_a_future_poll(self):
         """
@@ -148,9 +157,9 @@ class VotingFormViewTests(BaseTestCase):
         return a 404 not found.
         """
         self.client.force_login(self.u1)
-
         future_poll = self.create_poll(question='Future poll.', days=5, creator=self.u1)
         response = self.client.get(reverse('polls:voting_form', args=(future_poll.id,)))
+
         self.assertEqual(response.status_code, 404)
 
     def test_voting_form_view_with_a_past_poll(self):
@@ -158,11 +167,9 @@ class VotingFormViewTests(BaseTestCase):
         The voting_form view of a poll with a pub_date in the past should display
         the poll's question.
         """
+        self.client.force_login(self.u1)
         past_poll = self.create_poll(question='Past Poll.', days=-5, creator=self.u1)
-
-        request = self.factory.get(reverse('polls:voting_form', args=(past_poll.id,)))
-        request.user = self.u1
-        response = vote(request, past_poll.pk)
+        response = self.client.get(reverse('polls:voting_form', args=(past_poll.id,)))
 
         self.assertContains(response, past_poll.question, status_code=200)
 
@@ -170,9 +177,9 @@ class VotingFormViewTests(BaseTestCase):
         """
         The voting_form view without login should return a 302 redirect.
         """
-
         poll = self.create_poll(question='Future poll.', days=0, creator=self.u1)
         response = self.client.get(reverse('polls:voting_form', args=(poll.id,)))
+
         self.assertEqual(response.status_code, 302)
 
 
@@ -183,28 +190,21 @@ class ResultsViewTest(BaseTestCase):
         The results view of a poll with a pub_date in the future should
         return a 404 not found.
         """
+        self.client.force_login(self.u1)
         future_poll = self.create_poll(question='Future poll.', days=5, creator=self.u1)
-        request = self.factory.get(reverse('polls:results', args=(future_poll.id,)))
-        request.user = self.u1
+        response = self.client.get(reverse('polls:results', args=(future_poll.id,)))
 
-        # Because I'm calling the view instead of using test client, I need
-        # assertRaises:
-        with self.assertRaises(Http404):
-            response = ResultsView.as_view()(request, pk=future_poll.pk)
-            self.assertContains(response, 'Update ?')
-            self.assertContains(response, 'Delete ?')
+        self.assertEqual(response.status_code, 404)
 
     def test_results_view_with_a_past_poll(self):
         """
         The results view of a poll with a pub_date in the past should display
         the poll's question.
         """
-
+        self.client.force_login(self.u1)
         past_poll = self.create_poll(question='Past Poll.', days=-5, creator=self.u1)
-        request = self.factory.get(reverse('polls:results', args=(past_poll.pk,)))
-        request.user = self.u1
+        response = self.client.get(reverse('polls:results', args=(past_poll.pk,)))
 
-        response = ResultsView.as_view()(request, pk=past_poll.pk)
         self.assertContains(response, past_poll.question, status_code=200)
         self.assertContains(response, 'Update ?')
         self.assertContains(response, 'Delete ?')
@@ -214,10 +214,9 @@ class ResultsViewTest(BaseTestCase):
         The results view of a poll with a pub_date in the past should display
         the poll's question.
         """
-
         poll = self.create_poll(question='A poll.', days=-5, creator=self.u1)
-
         response = self.client.get(reverse('polls:results', args=[poll.pk]))
+
         self.assertContains(response, poll.question, status_code=200)
         self.assertNotContains(response, 'You voted:')
         self.assertNotContains(response, 'Update ?')
@@ -230,16 +229,15 @@ class PollCreateViewTests(BaseTestCase):
         """
         The create view without login should return a 302 redirect.
         """
-
         response = self.client.get(reverse('polls:create'))
+
         self.assertEqual(response.status_code, 302)
 
     def test_create_poll_view_get_with_login(self):
         """
         The create view without login should return a 302 redirect.
         """
-
         self.client.force_login(self.u1)
-
         response = self.client.get(reverse('polls:create'))
+
         self.assertEqual(response.status_code, 200)

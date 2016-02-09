@@ -11,14 +11,6 @@ class PollQuerySet(models.QuerySet):
         return self.filter(pub_date__lte=timezone.now())
 
 
-class PollManager(models.Manager):
-    def get_queryset(self):
-        return PollQuerySet(self.model, using=self._db)
-    
-    def public(self):
-        return self.get_queryset().public()
-
-
 class Poll(models.Model):
     question = models.CharField(max_length=200)
     pub_date = models.DateTimeField('date published', default=timezone.now)
@@ -38,7 +30,7 @@ class Poll(models.Model):
     was_published_recently.admin_order_field = 'pub_date'
     was_published_recently.boolean = True
     was_published_recently.short_description = 'Published recently?'
-    objects = PollManager()
+    objects = PollQuerySet.as_manager()
 
 
 class Choice(models.Model):

@@ -21,8 +21,7 @@ class IndexView(generic.ListView):
         published in the future).
         """
         return Poll.objects.filter(
-            pub_date__lte=timezone.now()
-        ).order_by('-pub_date')[:5]
+                pub_date__lte=timezone.now()).order_by('-pub_date')[:5]
 
 
 class ResultsView(generic.DetailView):
@@ -30,7 +29,8 @@ class ResultsView(generic.DetailView):
     template_name = 'polls/results.html'
     
     def get_object(self):
-        return get_object_or_404(self.model.objects.public(), pk=self.kwargs['pk'])
+        return get_object_or_404(self.model.objects.public(), 
+                pk=self.kwargs['pk'])
 
     def get_context_data(self, **kwargs):
         context = super(ResultsView, self).get_context_data(**kwargs)
