@@ -4,7 +4,7 @@
 {% if latest_poll_list %}
     <ul>
     {% for poll in latest_poll_list %}
-		<li><a href="{% url 'polls:results' poll.id %}">{{ poll.question }}</a></li>
+    <li{% if poll.was_published_recently %} class="recent"{% endif %}><a href="{% url 'polls:results' poll.id %}">{{ poll.question }}</a> ({{ poll.num_voters }} voters)</li>
     {% endfor %}
     </ul>
 {% else %}

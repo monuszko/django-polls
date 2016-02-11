@@ -23,10 +23,31 @@ class BaseTestCase(TestCase):
             )
         self.u2 = User.objects.create(
             password='2ece25e98d3379376093834e713717e23c825ca1',
-            is_superuser=False, username='Jazavac',
+            is_superuser=False, username='jazavac',
             first_name='Jazavac', last_name='Euroazijski',
             email='jazavac@example.com', is_staff=False, is_active=True,
             date_joined=datetime.datetime(2009, 6, 21, 13, 20, 10)
+            )
+        self.u3 = User.objects.create(
+            password='d5eba09c4191d6a1a9739b5e18c22e995e50455e',
+            is_superuser=False, username='mochyn',
+            first_name='Mochyn', last_name='daear',
+            email='mochyn@example.com', is_staff=False, is_active=True,
+            date_joined=datetime.datetime(2009, 6, 22, 13, 20, 10)
+            )
+        self.u4 = User.objects.create(
+            password='8bb75fe7b0693f8dda98213f61d1513b6b0a95ec',
+            is_superuser=False, username='dachs',
+            first_name='Europäischer', last_name='Dachs',
+            email='dachs@example.com', is_staff=False, is_active=True,
+            date_joined=datetime.datetime(2003, 6, 22, 13, 21, 10)
+            )
+        self.u5 = User.objects.create(
+            password='baf11129ce63c4eef654f39a360b31cfc7d1ac67',
+            is_superuser=False, username='azkonar',
+            first_name='Azkonar', last_name='Arrunt',
+            email='azkonar@example.com', is_staff=False, is_active=True,
+            date_joined=datetime.datetime(2004, 7, 22, 13, 21, 10)
             )
 
     def create_poll(self, question, days, creator):
@@ -70,7 +91,7 @@ class PollMethodTests(BaseTestCase):
         was_published_recently() should return False for polls whose
         pub_date is in the future
         """
-        future_poll = Poll(pub_date=timezone.now() + datetime.timedelta(days=30))
+        future_poll = self.create_poll(question="Future poll.", days=30, creator=self.u1)
 
         self.assertEqual(future_poll.was_published_recently(), False)
 
@@ -79,7 +100,7 @@ class PollMethodTests(BaseTestCase):
         was_published_recently() should return False for polls whose pub_date
         is older than 1 day
         """
-        old_poll = Poll(pub_date=timezone.now() - datetime.timedelta(days=30))
+        old_poll = self.create_poll(question="Old poll.", days=-30, creator=self.u1)
 
         self.assertEqual(old_poll.was_published_recently(), False)
 
@@ -88,10 +109,66 @@ class PollMethodTests(BaseTestCase):
         was_published_recently() should return True for polls whose pub_date
         is within the last day
         """
+        #TODO: hour support for create_poll
         recent_poll = Poll(pub_date=timezone.now() - datetime.timedelta(hours=1))
 
         self.assertEqual(recent_poll.was_published_recently(), True)
 
+    def test_num_voters_with_no_votes(self):
+        """
+        num_voters() should return 0 for polls no one voted on.
+        """
+        another_poll = self.create_poll(question="Past poll.", days=-3, creator=self.u1)
+        choice1 = Choice.objects.create(poll=another_poll, choice_text='Another answer 1')
+        choice2 = Choice.objects.create(poll=another_poll, choice_text='Another answer 2')
+        choice3 = Choice.objects.create(poll=another_poll, choice_text='Another answer 3')
+        choice4 = Choice.objects.create(poll=another_poll, choice_text='Another answer 4')
+        choice5 = Choice.objects.create(poll=another_poll, choice_text='Another answer 5')
+
+        self.assertEqual(another_poll.num_voters(), 0)
+
+    def test_num_voters_with_votes(self):
+        """
+        num_voters() should return the number of users who voted on this poll.
+        """
+        another_poll = self.create_poll(question="Past poll.", days=-3, creator=self.u1)
+        choice1 = Choice.objects.create(poll=another_poll, choice_text='Another answer 1')
+        choice2 = Choice.objects.create(poll=another_poll, choice_text='Another answer 2')
+        choice3 = Choice.objects.create(poll=another_poll, choice_text='Another answer 3')
+        choice4 = Choice.objects.create(poll=another_poll, choice_text='Another answer 4')
+        choice5 = Choice.objects.create(poll=another_poll, choice_text='Another answer 5')
+        Vote.objects.create(user=self.u2, choice=choice1)
+        Vote.objects.create(user=self.u3, choice=choice2)
+        Vote.objects.create(user=self.u4, choice=choice3)
+        Vote.objects.create(user=self.u5, choice=choice4)
+
+        self.assertEqual(another_poll.num_voters(), 4)
+
+    def test_num_voters_with_votes(self):
+        """
+        Votes on one poll shouldn't affect the number of voters on another poll.
+        """
+        first_poll = self.create_poll(question="First poll.", days=-3, creator=self.u1)
+        second_poll = self.create_poll(question="Second poll.", days=-2, creator=self.u2)
+
+        choice1_f = Choice.objects.create(poll=first_poll, choice_text='First answer 1')
+        choice2_f = Choice.objects.create(poll=first_poll, choice_text='First answer 2')
+        choice3_f = Choice.objects.create(poll=first_poll, choice_text='First answer 3')
+        choice4_f = Choice.objects.create(poll=first_poll, choice_text='First answer 4')
+
+        choice1_s = Choice.objects.create(poll=second_poll, choice_text='Second answer 1')
+        choice2_s = Choice.objects.create(poll=second_poll, choice_text='Second answer 2')
+        choice3_s = Choice.objects.create(poll=second_poll, choice_text='Second answer 3')
+        choice4_s = Choice.objects.create(poll=second_poll, choice_text='Second answer 4')
+
+        Vote.objects.create(user=self.u2, choice=choice1_f)
+
+        Vote.objects.create(user=self.u3, choice=choice2_s)
+        Vote.objects.create(user=self.u4, choice=choice3_s)
+        Vote.objects.create(user=self.u5, choice=choice4_s)
+
+        self.assertEqual(first_poll.num_voters(), 1)
+        self.assertEqual(second_poll.num_voters(), 3)
 
 class PollIndexViewTests(BaseTestCase):
 

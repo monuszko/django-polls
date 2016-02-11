@@ -20,16 +20,24 @@ class Poll(models.Model):
     def __unicode__(self):  # Python 3: def __str__(self):
         return self.question
 
-    def was_published_recently(self):
-        now = timezone.now()
-        return now - datetime.timedelta(days=1) <= self.pub_date < now
-    
     def get_absolute_url(self):
         return reverse('polls:results', args=(self.id,))
 
+    def was_published_recently(self):
+        now = timezone.now()
+        return now - datetime.timedelta(days=1) <= self.pub_date < now
+
+    #TODO: pub_date ??
     was_published_recently.admin_order_field = 'pub_date'
     was_published_recently.boolean = True
     was_published_recently.short_description = 'Published recently?'
+    
+    def num_voters(self):
+        '''Return the number of people who voted on this poll.'''
+        return Vote.objects.filter(choice__poll=self).count()
+
+    num_voters.short_description = 'Number of voters'
+
     objects = PollQuerySet.as_manager()
 
 
