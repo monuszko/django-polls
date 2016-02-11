@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import datetime
 
 from django.http import Http404
@@ -6,7 +7,7 @@ from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth.models import User
 
-from .models import Poll
+from .models import Poll, Choice, Vote
 from .forms import PollForm, ChoiceFormSet
 from .views import vote, ResultsView
 
@@ -19,6 +20,13 @@ class BaseTestCase(TestCase):
             first_name='Borsuk', last_name='Euroazjatycki',
             email='borsuk@example.com', is_staff=False, is_active=True,
             date_joined=datetime.datetime(2008, 5, 30, 13, 20, 10)
+            )
+        self.u2 = User.objects.create(
+            password='2ece25e98d3379376093834e713717e23c825ca1',
+            is_superuser=False, username='Jazavac',
+            first_name='Jazavac', last_name='Euroazijski',
+            email='jazavac@example.com', is_staff=False, is_active=True,
+            date_joined=datetime.datetime(2009, 6, 21, 13, 20, 10)
             )
 
     def create_poll(self, question, days, creator):
@@ -148,10 +156,10 @@ class PollIndexViewTests(BaseTestCase):
         )
 
 
-class VotingFormViewTests(BaseTestCase):
+class VoteViewTests(BaseTestCase):
     #TODO: test POST
     
-    def test_voting_form_view_with_a_future_poll(self):
+    def test_vote_GET_with_a_future_poll(self):
         """
         The voting_form view of a poll with a pub_date in the future should
         return a 404 not found.
@@ -162,7 +170,7 @@ class VotingFormViewTests(BaseTestCase):
 
         self.assertEqual(response.status_code, 404)
 
-    def test_voting_form_view_with_a_past_poll(self):
+    def test_vote_GET_with_a_past_poll(self):
         """
         The voting_form view of a poll with a pub_date in the past should display
         the poll's question.
@@ -173,9 +181,56 @@ class VotingFormViewTests(BaseTestCase):
 
         self.assertContains(response, past_poll.question, status_code=200)
 
-    def test_voting_form_view_without_login(self):
+    def test_vote_GET_without_login(self):
         """
         The voting_form view without login should return a 302 redirect.
+        """
+        poll = self.create_poll(question='Future poll.', days=0, creator=self.u1)
+        response = self.client.get(reverse('polls:voting_form', args=(poll.id,)))
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_vote_POST_with_a_future_poll(self):
+        '''
+        Voting on a future poll doesn't work even if it exists
+        '''
+        self.client.force_login(self.u2)
+        future_poll = self.create_poll(question='Future poll.', days=5, creator=self.u1)
+        choice1 = Choice.objects.create(poll=future_poll, choice_text='Future answer 1')
+        choice2 = Choice.objects.create(poll=future_poll, choice_text='Future answer 2')
+        choice3 = Choice.objects.create(poll=future_poll, choice_text='Future answer 3')
+        choice4 = Choice.objects.create(poll=future_poll, choice_text='Future answer 4')
+        choice5 = Choice.objects.create(poll=future_poll, choice_text='Future answer 5')
+        selected_choice = future_poll.choice_set.all()[2]
+        post_data = {'choice': 2}
+
+        response = self.client.post(
+                reverse('polls:voting_form', args=(future_poll.id,)),
+                post_data)
+        self.assertEqual(Vote.objects.all().count(), 0)
+        self.assertEqual(response.status_code, 404)
+
+    def test_vote_POST_with_a_past_poll(self):
+        self.client.force_login(self.u2)
+        past_poll = self.create_poll(question='Past poll.', days=-5, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        selected_choice = past_poll.choice_set.all()[2]
+        post_data = {u'choice': selected_choice.pk}
+
+        response = self.client.post(
+                reverse('polls:voting_form', args=(past_poll.id,)),
+                post_data)
+        self.assertEqual(Vote.objects.all().count(), 1)
+        self.assertEqual(response.status_code, 302)
+
+    def test_vote_POST_without_login(self):
+        """
+        The voting_form view without login should return a 302 redirect, even
+        if sent correct POST
         """
         poll = self.create_poll(question='Future poll.', days=0, creator=self.u1)
         response = self.client.get(reverse('polls:voting_form', args=(poll.id,)))
@@ -225,7 +280,7 @@ class ResultsViewTest(BaseTestCase):
 
 class PollCreateViewTests(BaseTestCase):
 
-    def test_create_poll_view_get_without_login(self):
+    def test_create_poll_GET_without_login(self):
         """
         The create view without login should return a 302 redirect.
         """
@@ -233,11 +288,67 @@ class PollCreateViewTests(BaseTestCase):
 
         self.assertEqual(response.status_code, 302)
 
-    def test_create_poll_view_get_with_login(self):
+    def test_create_poll_GET_with_login(self):
         """
-        The create view without login should return a 302 redirect.
+        The create view with login should display the form.
         """
         self.client.force_login(self.u1)
         response = self.client.get(reverse('polls:create'))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Question:')
+        self.assertContains(response, 'Answers:')
+
+    def test_create_poll_POST_with_login(self):
+        """
+        The create view should create objects when sent correct POST
+        """
+        self.client.force_login(self.u1)
+        post_data = {
+        u'choice_set-1-choice_text': [u'5'],
+        u'choice_set-4-choice_text': [u''],
+        u'choice_set-3-choice_text': [u'1'],
+        u'question': [u'Ile widzisz palców ?'],
+        u'choice_set-INITIAL_FORMS': [u'0'],
+        u'choice_set-2-choice_text': [u'7'],
+        u'choice_set-0-choice_text': [u'2'],
+        u'choice_set-MAX_NUM_FORMS': [u'1000'],
+        u'choice_set-MIN_NUM_FORMS': [u'0'],
+        u'choice_set-TOTAL_FORMS': [u'5']
+        }
+        response = self.client.post(reverse('polls:create'), post_data)
+        poll = Poll.objects.all()[0]
+        choices = poll.choice_set.all().values_list('choice_text', flat=True)
+        choices = set(choices)
+
+        #TODO: take it further with response (view, status code)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Poll.objects.all().count(), 1)
+        self.assertEqual(poll.question, u'Ile widzisz palców ?')
+        self.assertEqual(poll.created_by, self.u1)
+        self.assertEqual(len(choices), 4)
+        self.assertEqual(choices, {u'1', u'2', u'5', u'7'})
+
+    def test_create_poll_POST_without_login(self):
+        """
+        The create view should NOT create objects when sent correct POST
+        without being logged in
+        """
+        post_data = {
+        u'choice_set-1-choice_text': [u'5'],
+        u'choice_set-4-choice_text': [u''],
+        u'choice_set-3-choice_text': [u'1'],
+        u'question': [u'Ile widzisz palców ?'],
+        u'choice_set-INITIAL_FORMS': [u'0'],
+        u'choice_set-2-choice_text': [u'7'],
+        u'choice_set-0-choice_text': [u'2'],
+        u'choice_set-MAX_NUM_FORMS': [u'1000'],
+        u'choice_set-MIN_NUM_FORMS': [u'0'],
+        u'choice_set-TOTAL_FORMS': [u'5']
+        }
+        response = self.client.post(reverse('polls:create'), post_data)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Poll.objects.all().count(), 0)
+        self.assertEqual(Choice.objects.all().count(), 0)
+
