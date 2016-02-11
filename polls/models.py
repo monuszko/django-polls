@@ -48,6 +48,9 @@ class Choice(models.Model):
     def __unicode__(self):  # Python 3: def __str__(self):
         return self.choice_text
 
+    class Meta:
+        unique_together = ('poll', 'choice_text')
+
 
 class Vote(models.Model):
     choice = models.ForeignKey(Choice)
@@ -59,4 +62,6 @@ class Vote(models.Model):
                 self.choice.choice_text,
                 str(self.user),
                 )
+    class Meta:
+        unique_together = ('choice', 'user')
 

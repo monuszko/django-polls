@@ -253,10 +253,11 @@ class VoteViewTests(BaseTestCase):
         the poll's question.
         """
         self.client.force_login(self.u1)
-        past_poll = self.create_poll(question='Past Poll.', days=-5, creator=self.u1)
+        past_poll = self.create_poll(question='Past Poll.', days=-5, creator=self.u2)
         response = self.client.get(reverse('polls:voting_form', args=(past_poll.id,)))
 
         self.assertContains(response, past_poll.question, status_code=200)
+        self.assertEqual(response.context['error_message'], None)
 
     def test_vote_GET_without_login(self):
         """
@@ -302,7 +303,72 @@ class VoteViewTests(BaseTestCase):
                 reverse('polls:voting_form', args=(past_poll.id,)),
                 post_data)
         self.assertEqual(Vote.objects.all().count(), 1)
+        v = Vote.objects.all()[0]
+        self.assertEqual(v.user, self.u2)
+        self.assertEqual(v.choice, selected_choice)
         self.assertEqual(response.status_code, 302)
+
+    def test_vote_POST_on_his_own_poll(self):
+        """
+        Trying to vote in your own poll should result in an error message.
+        """
+        self.client.force_login(self.u2)
+        past_poll = self.create_poll(question='Past poll.', days=-5, creator=self.u2)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        selected_choice = past_poll.choice_set.all()[2]
+        post_data = {u'choice': selected_choice.pk}
+
+        response = self.client.post(
+                reverse('polls:voting_form', args=(past_poll.id,)),
+                post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['error_message'], "You can't vote in your own poll!")
+        self.assertEqual(Vote.objects.all().count(), 0)
+
+    def test_vote_POST_already_voted(self):
+        """
+        Another error message if the user already voted in the poll.
+        """
+        self.client.force_login(self.u2)
+        past_poll = self.create_poll(question='Past poll.', days=-5, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        selected_choice = past_poll.choice_set.all()[2]
+        post_data = {u'choice': selected_choice.pk}
+        Vote.objects.create(user=self.u2, choice=choice5)
+
+        response = self.client.post(
+                reverse('polls:voting_form', args=(past_poll.id,)),
+                post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['error_message'], "Voting twice is not allowed.")
+
+    def test_vote_POST_no_choice_selected(self):
+        """
+        Another error message if no choice was selected.
+        """
+        self.client.force_login(self.u2)
+        past_poll = self.create_poll(question='Past poll.', days=-5, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        selected_choice = past_poll.choice_set.all()[2]
+        post_data = {}
+
+        response = self.client.post(
+                reverse('polls:voting_form', args=(past_poll.id,)),
+                post_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['error_message'], "You didn't select a choice.")
 
     def test_vote_POST_without_login(self):
         """
