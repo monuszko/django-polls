@@ -117,6 +117,8 @@ class PollDelete(generic.DeleteView):
 @login_required
 def update_poll(request, pk):
     poll = get_object_or_404(Poll, pk=pk)
+    if poll.created_by != request.user:
+        raise Http404
     if request.method == 'POST':
         poll_form = PollForm(request.POST, instance=poll)
         choice_formset = ChoiceFormSet(request.POST, instance=poll)

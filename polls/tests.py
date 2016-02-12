@@ -50,7 +50,7 @@ class BaseTestCase(TestCase):
             date_joined=datetime.datetime(2004, 7, 22, 13, 21, 10)
             )
 
-    def create_poll(self, question, days, creator):
+    def create_poll(self, question, creator, days=0, hours=0):
         """
         Creates a poll with the given `question` published the given number of
         `days` offset to now (negative for polls published in the past,
@@ -58,7 +58,7 @@ class BaseTestCase(TestCase):
         """
         return Poll.objects.create(
             question=question,
-            pub_date=timezone.now() + datetime.timedelta(days=days),
+            pub_date=timezone.now() + datetime.timedelta(days=days, hours=hours),
             created_by=creator,
         )
 
@@ -109,8 +109,7 @@ class PollMethodTests(BaseTestCase):
         was_published_recently() should return True for polls whose pub_date
         is within the last day
         """
-        #TODO: hour support for create_poll
-        recent_poll = Poll(pub_date=timezone.now() - datetime.timedelta(hours=1))
+        recent_poll = self.create_poll(question="Past poll.", hours=-1, creator=self.u1)
 
         self.assertEqual(recent_poll.was_published_recently(), True)
 
@@ -263,7 +262,7 @@ class VoteViewTests(BaseTestCase):
         """
         The voting_form view without login should return a 302 redirect.
         """
-        poll = self.create_poll(question='Future poll.', days=0, creator=self.u1)
+        poll = self.create_poll(question='A poll.', days=0, creator=self.u1)
         response = self.client.get(reverse('polls:voting_form', args=(poll.id,)))
 
         self.assertEqual(response.status_code, 302)
@@ -349,6 +348,7 @@ class VoteViewTests(BaseTestCase):
                 post_data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['error_message'], "Voting twice is not allowed.")
+        self.assertEqual(Vote.objects.all().count(), 1)
 
     def test_vote_POST_no_choice_selected(self):
         """
@@ -369,16 +369,28 @@ class VoteViewTests(BaseTestCase):
                 post_data)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context['error_message'], "You didn't select a choice.")
+        self.assertEqual(Vote.objects.all().count(), 0)
 
     def test_vote_POST_without_login(self):
         """
         The voting_form view without login should return a 302 redirect, even
         if sent correct POST
         """
+        past_poll = self.create_poll(question='Past poll.', days=-5, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        selected_choice = past_poll.choice_set.all()[2]
+        post_data = {u'choice': selected_choice.pk}
         poll = self.create_poll(question='Future poll.', days=0, creator=self.u1)
-        response = self.client.get(reverse('polls:voting_form', args=(poll.id,)))
 
+        response = self.client.post(
+                reverse('polls:voting_form', args=(poll.id,)),
+                post_data)
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(Vote.objects.all().count(), 0)
 
 
 class ResultsViewTest(BaseTestCase):
@@ -409,8 +421,7 @@ class ResultsViewTest(BaseTestCase):
 
     def test_results_view_without_login(self):
         """
-        The results view of a poll with a pub_date in the past should display
-        the poll's question.
+        Results of polls should still be visible for people not logged in.
         """
         poll = self.create_poll(question='A poll.', days=-5, creator=self.u1)
         response = self.client.get(reverse('polls:results', args=[poll.pk]))
@@ -419,6 +430,15 @@ class ResultsViewTest(BaseTestCase):
         self.assertNotContains(response, 'You voted:')
         self.assertNotContains(response, 'Update ?')
         self.assertNotContains(response, 'Delete ?')
+
+
+    def test_results_view_without_polls(self):
+        """
+        Trying to view a poll when there are none should yield 404.
+        """
+        response = self.client.get(reverse('polls:results', args=[5]))
+
+        self.assertEqual(response.status_code, 404)
 
 
 class PollCreateViewTests(BaseTestCase):
@@ -495,3 +515,231 @@ class PollCreateViewTests(BaseTestCase):
         self.assertEqual(Poll.objects.all().count(), 0)
         self.assertEqual(Choice.objects.all().count(), 0)
 
+class PollUpdateViewTests(BaseTestCase):
+
+    def test_update_poll_GET_without_login(self):
+        """
+        The update view without login should return a 302 redirect.
+        """
+        past_poll = self.create_poll(question="Past poll.", days=-30, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        response = self.client.get(reverse('polls:update', args=[past_poll.pk]))
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_update_poll_GET_with_login(self):
+        """
+        The create view with login should display the form.
+        """
+        self.client.force_login(self.u1)
+        past_poll = self.create_poll(question="Past poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        response = self.client.get(reverse('polls:update', args=[past_poll.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Question:')
+        self.assertContains(response, 'Answers:')
+
+    def test_update_poll_POST_with_login(self):
+        """
+        The create view should create objects when sent correct POST
+        """
+        self.client.force_login(self.u1)
+        past_poll = self.create_poll(question="Past poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        post_data = {
+                u'question': [u'Grasz w bierki ?'],
+                u'choice_set-0-id': [u'%s' % choice1.pk],
+                u'choice_set-0-choice_text': [u'Tak.'],
+                u'choice_set-1-id': [u'%s' % choice2.pk],
+                u'choice_set-1-choice_text': [u'Nie.'],
+                u'choice_set-2-id': [u'%s' % choice3.pk],
+                u'choice_set-2-choice_text': [u'Nie wiem.'],
+                u'choice_set-3-id': [u'%s' % choice4.pk],
+                u'choice_set-3-choice_text': [u'Później.'],
+                u'choice_set-4-id': [u'%s' % choice5.pk],
+                u'choice_set-4-choice_text': [u'Nie z tobą.'],
+                u'choice_set-INITIAL_FORMS': [u'5'],
+                u'choice_set-MIN_NUM_FORMS': [u'0'],
+                u'choice_set-TOTAL_FORMS': [u'8'],
+                u'choice_set-MAX_NUM_FORMS': [u'1000'],
+        }
+
+        response = self.client.post(
+                reverse('polls:update', args=[past_poll.pk]),
+                post_data)
+        self.assertEqual(response.status_code, 302)
+
+        poll = Poll.objects.all()[0]
+        choices = set(poll.choice_set.all().values_list('choice_text', flat=True))
+        self.assertEqual(poll.question, u"Grasz w bierki ?")
+        self.assertEqual(Poll.objects.all().count(), 1)
+        self.assertEqual(Choice.objects.all().count(), 5)
+        self.assertEqual(poll.created_by, self.u1)
+
+        #TODO: take it further with response (view, status code)
+        self.assertEqual(poll.created_by, self.u1)
+        self.assertEqual(len(choices), 5)
+        self.assertEqual(choices, {u'Tak.', u'Nie.', u'Nie wiem.', u'Później.', u'Nie z tobą.'})
+
+    def test_update_poll_POST_without_login(self):
+        """
+        The create view should NOT create objects when sent correct POST
+        without being logged in
+        """
+        past_poll = self.create_poll(question="Past poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        post_data = {
+                u'question': [u'Grasz w bierki ?'],
+                u'choice_set-0-id': [u'%s' % choice1.pk],
+                u'choice_set-0-choice_text': [u'Tak.'],
+                u'choice_set-1-id': [u'%s' % choice2.pk],
+                u'choice_set-1-choice_text': [u'Nie.'],
+                u'choice_set-2-id': [u'%s' % choice3.pk],
+                u'choice_set-2-choice_text': [u'Nie wiem.'],
+                u'choice_set-3-id': [u'%s' % choice4.pk],
+                u'choice_set-3-choice_text': [u'Później.'],
+                u'choice_set-4-id': [u'%s' % choice5.pk],
+                u'choice_set-4-choice_text': [u'Nie z tobą.'],
+                u'choice_set-INITIAL_FORMS': [u'5'],
+                u'choice_set-MIN_NUM_FORMS': [u'0'],
+                u'choice_set-TOTAL_FORMS': [u'8'],
+                u'choice_set-MAX_NUM_FORMS': [u'1000'],
+        }
+
+        response = self.client.post(
+                reverse('polls:update', args=[past_poll.pk]),
+                post_data)
+        self.assertEqual(response.status_code, 302)
+
+        poll = Poll.objects.all()[0]
+        choices = set(poll.choice_set.all().values_list('choice_text', flat=True))
+        self.assertEqual(poll.question, u"Past poll.")
+        self.assertEqual(Poll.objects.all().count(), 1)
+        self.assertEqual(Choice.objects.all().count(), 5)
+        self.assertEqual(poll.created_by, self.u1)
+
+        #TODO: take it further with response (view, status code)
+        self.assertEqual(poll.created_by, self.u1)
+        self.assertEqual(len(choices), 5)
+        self.assertEqual(choices, {
+            u'Past answer 1',
+            u'Past answer 2',
+            u'Past answer 3',
+            u'Past answer 4',
+            u'Past answer 5',
+            })
+
+    def test_update_poll_POST_not_owner(self):
+        """
+        Even when sent correct POST, the view should refuse modification
+        of other users' polls.
+        """
+        self.client.force_login(self.u2)
+        past_poll = self.create_poll(question="Past poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=past_poll, choice_text='Past answer 1')
+        choice2 = Choice.objects.create(poll=past_poll, choice_text='Past answer 2')
+        choice3 = Choice.objects.create(poll=past_poll, choice_text='Past answer 3')
+        choice4 = Choice.objects.create(poll=past_poll, choice_text='Past answer 4')
+        choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
+        post_data = {
+                u'question': [u'Grasz w bierki ?'],
+                u'choice_set-0-id': [u'%s' % choice1.pk],
+                u'choice_set-0-choice_text': [u'Tak.'],
+                u'choice_set-1-id': [u'%s' % choice2.pk],
+                u'choice_set-1-choice_text': [u'Nie.'],
+                u'choice_set-2-id': [u'%s' % choice3.pk],
+                u'choice_set-2-choice_text': [u'Nie wiem.'],
+                u'choice_set-3-id': [u'%s' % choice4.pk],
+                u'choice_set-3-choice_text': [u'Później.'],
+                u'choice_set-4-id': [u'%s' % choice5.pk],
+                u'choice_set-4-choice_text': [u'Nie z tobą.'],
+                u'choice_set-INITIAL_FORMS': [u'5'],
+                u'choice_set-MIN_NUM_FORMS': [u'0'],
+                u'choice_set-TOTAL_FORMS': [u'8'],
+                u'choice_set-MAX_NUM_FORMS': [u'1000'],
+        }
+
+        response = self.client.post(
+                reverse('polls:update', args=[past_poll.pk]),
+                post_data)
+        self.assertEqual(response.status_code, 404)
+
+        poll = Poll.objects.all()[0]
+        choices = set(poll.choice_set.all().values_list('choice_text', flat=True))
+        self.assertEqual(poll.question, u"Past poll.")
+        self.assertEqual(Poll.objects.all().count(), 1)
+        self.assertEqual(Choice.objects.all().count(), 5)
+        self.assertEqual(poll.created_by, self.u1)
+        self.assertEqual(len(choices), 5)
+        self.assertEqual(choices, {
+            u'Past answer 1',
+            u'Past answer 2',
+            u'Past answer 3',
+            u'Past answer 4',
+            u'Past answer 5',
+            })
+
+
+class PollDeleteViewTests(BaseTestCase):
+
+    def test_PollDelete_GET_without_login(self):
+        """
+        The delete view without login should return a 302 redirect.
+        """
+        poll = self.create_poll(question="A poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=poll, choice_text='An answer 1')
+        choice2 = Choice.objects.create(poll=poll, choice_text='An answer 2')
+        choice3 = Choice.objects.create(poll=poll, choice_text='An answer 3')
+        choice4 = Choice.objects.create(poll=poll, choice_text='An answer 4')
+        choice5 = Choice.objects.create(poll=poll, choice_text='An answer 5')
+        response = self.client.get(reverse('polls:delete', args=[poll.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Poll.objects.all().count(), 1)
+
+    def test_PollDelete_GET_with_login(self):
+        """
+        Confirmation screen should be displayed for the poll owner.
+        """
+        self.client.force_login(self.u1)
+        poll = self.create_poll(question="A poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=poll, choice_text='An answer 1')
+        choice2 = Choice.objects.create(poll=poll, choice_text='An answer 2')
+        choice3 = Choice.objects.create(poll=poll, choice_text='An answer 3')
+        choice4 = Choice.objects.create(poll=poll, choice_text='An answer 4')
+        choice5 = Choice.objects.create(poll=poll, choice_text='An answer 5')
+
+        response = self.client.get(reverse('polls:delete', args=[poll.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Are you sure you want to delete')
+        self.assertContains(response, poll.question)
+        self.assertEqual(Poll.objects.all().count(), 1)
+
+    def test_PollDelete_GET_not_owner(self):
+        """
+        User that isn't owner should get 404.
+        """
+        self.client.force_login(self.u2)
+        poll = self.create_poll(question="A poll.", days=-29, creator=self.u1)
+        choice1 = Choice.objects.create(poll=poll, choice_text='An answer 1')
+        choice2 = Choice.objects.create(poll=poll, choice_text='An answer 2')
+        choice3 = Choice.objects.create(poll=poll, choice_text='An answer 3')
+        choice4 = Choice.objects.create(poll=poll, choice_text='An answer 4')
+        choice5 = Choice.objects.create(poll=poll, choice_text='An answer 5')
+
+        response = self.client.get(reverse('polls:delete', args=[poll.pk]))
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Poll.objects.all().count(), 1)
