@@ -19,7 +19,7 @@
 <h1>Polls for category "{{ catname }}" and subcategories:</h1>
 {% endwith %}
 
-{% with category.polls_from_subcategories as latest_poll_list %}
+{% with category.polls_from_subcategories as poll_list %}
 {% include 'polls/poll_list.html' %}
 {% endwith %}
 
