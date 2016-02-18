@@ -18,6 +18,18 @@ class PollCategory(MPTTModel):
     def get_absolute_url(self):
         return reverse('polls:category', args=(self.pk,))
 
+    def tree_containing(self):
+        '''Return the whole category tree containing this category'''
+        return self.get_root().get_descendants(include_self=True)
+
+    def polls_from_subcategories(self):
+        '''Returns all polls from this category and subcategories'''
+        child_cats = self.get_descendants(include_self=True)
+        return Poll.objects.public().filter(category__in=child_cats)
+
+    class Meta:
+        verbose_name_plural = u'Poll categories'
+
     class MPTTMeta:
         order_insertion_by = ['name']
 

@@ -138,13 +138,8 @@ def update_poll(request, pk):
 
 def category(request, pk):
     cat = get_object_or_404(PollCategory, pk=pk)
-    all_cats = cat.get_root().get_descendants(include_self=True)
-    child_cats = all_cats if cat.is_root_node() else cat.get_descendants(include_self=True)
-    polls = Poll.objects.public().filter(category__in=child_cats)
     return render(request, 'polls/category.html', {
         'category': cat,
-        'all_categories': all_cats,
-        'polls': polls,
         })
 
 

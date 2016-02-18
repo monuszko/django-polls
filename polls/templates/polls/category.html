@@ -4,7 +4,7 @@
 {% block content %}
 {% with category.name as catname %}
 <ul>
-    {% recursetree all_categories %}
+    {% recursetree category.tree_containing %}
         <li>
             
             <a href="{{ node.get_absolute_url }}"{% if node.name == catname %} class="selectedcategory"{% endif %}>{{ node.name }}</a> ({{ node.poll_set.all.count }})
@@ -18,7 +18,9 @@
 </ul>
 <h1>Polls for category "{{ catname }}" and subcategories:</h1>
 {% endwith %}
-{% with polls as latest_poll_list %}
+
+{% with category.polls_from_subcategories as latest_poll_list %}
 {% include 'polls/poll_list.html' %}
 {% endwith %}
+
 {% endblock content %}
