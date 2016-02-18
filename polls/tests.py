@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth.models import User
 
-from .models import Poll, Choice, Vote
+from .models import Poll, Choice, Vote, PollCategory
 from .forms import PollForm, ChoiceFormSet
 from .views import vote, ResultsView
 
@@ -49,8 +49,9 @@ class BaseTestCase(TestCase):
             email='azkonar@example.com', is_staff=False, is_active=True,
             date_joined=datetime.datetime(2004, 7, 22, 13, 21, 10)
             )
+        self.pc = PollCategory.objects.create(name='All polls')
 
-    def create_poll(self, question, creator, days=0, hours=0):
+    def create_poll(self, question, creator, category=None, days=0, hours=0):
         """
         Creates a poll with the given `question` published the given number of
         `days` offset to now (negative for polls published in the past,
@@ -60,16 +61,18 @@ class BaseTestCase(TestCase):
             question=question,
             pub_date=timezone.now() + datetime.timedelta(days=days, hours=hours),
             created_by=creator,
+            category = self.pc if not category else category,
         )
 
 
-class FormTests(TestCase):
+class FormTests(BaseTestCase):
 
     def test_pollform_with_question(self):
         """
         A pollform should be accepted if it's question is filled in.
         """
-        form_data = {'question': "Jak jest po staroegipsku 'krokodyl' ?"}
+        form_data = {u'question': "Jak jest po staroegipsku 'krokodyl' ?",
+                     u'category': unicode(self.pc.pk)}
         form = PollForm(data=form_data)
 
         self.assertTrue(form.is_valid())
@@ -185,9 +188,10 @@ class PollIndexViewTests(BaseTestCase):
         """
         Polls with a pub_date in the past should be displayed on the index page.
         """
-        self.create_poll(question="Past poll.", days=-30, creator=self.u1)
+        past_poll = self.create_poll(question="Past poll.", days=-30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
 
+        self.assertContains(response, past_poll.question)
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
             ['<Poll: Past poll.>']
@@ -209,10 +213,12 @@ class PollIndexViewTests(BaseTestCase):
         Even if both past and future polls exist, only past polls should be
         displayed.
         """
-        self.create_poll(question="Past poll.", days=-30, creator=self.u1)
-        self.create_poll(question="Future poll.", days=30, creator=self.u1)
+        past_poll = self.create_poll(question="Past poll.", days=-30, creator=self.u1)
+        future_poll = self.create_poll(question="Future poll.", days=30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
 
+        self.assertContains(response, past_poll.question)
+        self.assertNotContains(response, future_poll.question)
         self.assertQuerysetEqual(
             response.context['latest_poll_list'],
             ['<Poll: Past poll.>']
@@ -472,6 +478,7 @@ class PollCreateViewTests(BaseTestCase):
         u'choice_set-4-choice_text': [u''],
         u'choice_set-3-choice_text': [u'1'],
         u'question': [u'Ile widzisz palców ?'],
+        u'category': unicode(self.pc.pk),
         u'choice_set-INITIAL_FORMS': [u'0'],
         u'choice_set-2-choice_text': [u'7'],
         u'choice_set-0-choice_text': [u'2'],
@@ -557,6 +564,7 @@ class PollUpdateViewTests(BaseTestCase):
         choice5 = Choice.objects.create(poll=past_poll, choice_text='Past answer 5')
         post_data = {
                 u'question': [u'Grasz w bierki ?'],
+                u'category': unicode(self.pc.pk),
                 u'choice_set-0-id': [u'%s' % choice1.pk],
                 u'choice_set-0-choice_text': [u'Tak.'],
                 u'choice_set-1-id': [u'%s' % choice2.pk],

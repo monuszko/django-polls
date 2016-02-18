@@ -163,6 +163,7 @@ INSTALLED_APPS = (
     'polls',
     'registration',
     'django_comments',
+    'mptt',
 )
 
 ACCOUNT_ACTIVATION_DAYS = 2

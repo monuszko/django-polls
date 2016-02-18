@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^(?P<pk>\d+)/vote$', views.vote, name='voting_form'),
     url(r'^(?P<pk>\d+)/results/$', views.ResultsView.as_view(), name='results'),
     url(r'^create/$', views.create_poll, name='create'),
+    url(r'^category/(?P<pk>\d+)/$', views.category, name='category'),
     url(r'^(?P<pk>\d+)/delete$', views.PollDelete.as_view(), name='delete'),
     url(r'^(?P<pk>\d+)/update$', views.update_poll, name='update'),
     ]

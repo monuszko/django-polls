@@ -1,6 +1,8 @@
+from mptt.admin import MPTTModelAdmin
+
 from django.contrib import admin
 
-from .models import Choice, Poll, Vote
+from .models import Choice, Poll, Vote, PollCategory
 
 
 class ChoiceInline(admin.TabularInline):
@@ -11,7 +13,7 @@ class ChoiceInline(admin.TabularInline):
 class PollAdmin(admin.ModelAdmin):
     fieldsets = [
         (None, {
-            'fields': ['question', 'created_by'],
+            'fields': ['question', 'category', 'created_by',],
         }),
         ('Date information', {
             'fields': ['pub_date'],
@@ -19,7 +21,7 @@ class PollAdmin(admin.ModelAdmin):
         }),
     ]
     inlines = [ChoiceInline]
-    list_display = ('question', 'pub_date', 'num_voters', 'was_published_recently')
+    list_display = ('question', 'pub_date', 'category', 'num_voters', 'was_published_recently')
     list_filter = ['pub_date']
     search_fields = ['question']
     date_hierarchy = 'pub_date'
@@ -27,3 +29,4 @@ class PollAdmin(admin.ModelAdmin):
 admin.site.register(Poll, PollAdmin)
 admin.site.register(Choice)
 admin.site.register(Vote)
+admin.site.register(PollCategory, MPTTModelAdmin)

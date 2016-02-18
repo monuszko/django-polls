@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.views import generic
 from django.http import Http404
 
-from .models import Choice, Poll, Vote
+from .models import Choice, Poll, Vote, PollCategory
 from .forms import PollForm, ChoiceFormSet
 
 
@@ -133,5 +133,18 @@ def update_poll(request, pk):
                                                  'form': poll_form,
                                                  'formset': choice_formset
                                                  })
+
+
+
+def category(request, pk):
+    cat = get_object_or_404(PollCategory, pk=pk)
+    all_cats = cat.get_root().get_descendants(include_self=True)
+    child_cats = all_cats if cat.is_root_node() else cat.get_descendants(include_self=True)
+    polls = Poll.objects.public().filter(category__in=child_cats)
+    return render(request, 'polls/category.html', {
+        'category': cat,
+        'all_categories': all_cats,
+        'polls': polls,
+        })
 
 

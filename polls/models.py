@@ -1,9 +1,25 @@
 import datetime
 
+from mptt.models import MPTTModel, TreeForeignKey
+
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+
+
+class PollCategory(MPTTModel):
+    name = models.CharField(max_length=50, unique=True)
+    parent = TreeForeignKey('self', null=True, blank=True, related_name='children', db_index=True)
+
+    def __unicode__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse('polls:category', args=(self.pk,))
+
+    class MPTTMeta:
+        order_insertion_by = ['name']
 
 
 class PollQuerySet(models.QuerySet):
@@ -15,6 +31,7 @@ class Poll(models.Model):
     question = models.CharField(max_length=200)
     pub_date = models.DateTimeField('date published', default=timezone.now)
     visible = models.NullBooleanField()
+    category = TreeForeignKey(PollCategory, null=False, default=1)
     created_by = models.ForeignKey(User, default=0)
 
     def __unicode__(self):  # Python 3: def __str__(self):
@@ -64,4 +81,6 @@ class Vote(models.Model):
                 )
     class Meta:
         unique_together = ('choice', 'user')
+
+
 

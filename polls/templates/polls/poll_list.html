@@ -1,0 +1,9 @@
+{% if poll_list %}
+    <ul>
+    {% for poll in poll_list %}
+    <li{% if poll.was_published_recently %} class="recent"{% endif %}><a href="{% url 'polls:results' poll.id %}">{{ poll.question }}</a> ({{ poll.num_voters }} voters)</li>
+    {% endfor %}
+    </ul>
+{% else %}
+    <p>No polls are available.</p>
+{% endif %}

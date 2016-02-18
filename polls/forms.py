@@ -7,7 +7,7 @@ from .models import Poll, Choice
 class PollForm(ModelForm):
     class Meta:
         model = Poll
-        fields = ('question',)
+        fields = ('question', 'category')
 
 
 ChoiceFormSet = inlineformset_factory(Poll, Choice, fields=('choice_text',), extra=5)

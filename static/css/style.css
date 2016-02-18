@@ -1,6 +1,11 @@
 #id_honeypot {
     display: none;
 }
+
 .recent {
     list-style: square;
+}
+
+.selectedcategory{
+    font-weight: bold;
 }

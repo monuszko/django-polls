@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load mptt_tags %}
+
+{% block content %}
+{% with category.name as catname %}
+<ul>
+    {% recursetree all_categories %}
+        <li>
+            
+            <a href="{{ node.get_absolute_url }}"{% if node.name == catname %} class="selectedcategory"{% endif %}>{{ node.name }}</a> ({{ node.poll_set.all.count }})
+            {% if not node.is_leaf_node %}
+                <ul class="children">
+                    {{ children }}
+                </ul>
+            {% endif %}
+        </li>
+    {% endrecursetree %}
+</ul>
+<h1>Polls for category "{{ catname }}" and subcategories:</h1>
+{% endwith %}
+{% with polls as latest_poll_list %}
+{% include 'polls/poll_list.html' %}
+{% endwith %}
+{% endblock content %}
