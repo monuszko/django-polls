@@ -202,10 +202,11 @@ class PollIndexViewTests(BaseTestCase):
         Polls with a pub_date in the future should not be displayed on the
         index page.
         """
-        self.create_poll(question="Future poll.", days=30, creator=self.u1)
+        future_poll = self.create_poll(question="Future poll.", days=30, creator=self.u1)
         response = self.client.get(reverse('polls:index'))
 
         self.assertContains(response, "No polls are available.", status_code=200)
+        self.assertNotContains(response, future_poll.question)
         self.assertQuerysetEqual(response.context['latest_poll_list'], [])
 
     def test_index_view_with_future_poll_and_past_poll(self):
@@ -236,6 +237,104 @@ class PollIndexViewTests(BaseTestCase):
             response.context['latest_poll_list'],
             ['<Poll: Past poll 2.>', '<Poll: Past poll 1.>']
         )
+
+
+class PollCategoryViewTests(BaseTestCase):
+
+    def test_category_view_with_no_polls(self):
+        """
+        If no polls exist, an appropriate message should be displayed.
+        Poll category names should be displayed.
+        """
+        pc1 = PollCategory.objects.create(name='Polls A', parent=self.pc)
+        pc2 = PollCategory.objects.create(name='Polls AB', parent=pc1)
+        pc3 = PollCategory.objects.create(name='Polls AC', parent=pc1)
+        pc4 = PollCategory.objects.create(name='Polls ABA', parent=pc2)
+        pc5 = PollCategory.objects.create(name='Polls ACA', parent=pc3)
+        pc6 = PollCategory.objects.create(name='Polls ACB', parent=pc3)
+        pc7 = PollCategory.objects.create(name='Polls ACBA', parent=pc6)
+        response = self.client.get(reverse('polls:category', args=[self.pc.pk]))
+    
+        for cat in (pc1, pc2, pc3, pc4, pc5, pc6, pc7):
+            self.assertContains(response, cat.name)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'No polls are available.')
+
+    def test_category_view_with_a_past_poll(self):
+        """
+        Polls with a pub_date in the past should be displayed on the category page.
+        """
+        pc1 = PollCategory.objects.create(name='Polls A', parent=self.pc)
+        pc2 = PollCategory.objects.create(name='Polls AB', parent=pc1)
+        pc3 = PollCategory.objects.create(name='Polls AC', parent=pc1)
+        pc4 = PollCategory.objects.create(name='Polls ABA', parent=pc2)
+        pc5 = PollCategory.objects.create(name='Polls ACA', parent=pc3)
+        pc6 = PollCategory.objects.create(name='Polls ACB', parent=pc3)
+        pc7 = PollCategory.objects.create(name='Polls ACBA', parent=pc6)
+        past_poll = self.create_poll(question="Past poll.", days=-30, category=pc3, creator=self.u1)
+        response = self.client.get(reverse('polls:category', args=[self.pc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, past_poll.question)
+
+    def test_category_view_with_a_future_poll(self):
+        """
+        Polls with a pub_date in the future should not be displayed on the
+        category page.
+        """
+        pc1 = PollCategory.objects.create(name='Polls A', parent=self.pc)
+        pc2 = PollCategory.objects.create(name='Polls AB', parent=pc1)
+        pc3 = PollCategory.objects.create(name='Polls AC', parent=pc1)
+        pc4 = PollCategory.objects.create(name='Polls ABA', parent=pc2)
+        pc5 = PollCategory.objects.create(name='Polls ACA', parent=pc3)
+        pc6 = PollCategory.objects.create(name='Polls ACB', parent=pc3)
+        pc7 = PollCategory.objects.create(name='Polls ACBA', parent=pc6)
+        future_poll = self.create_poll(question="Future poll.", days=30, category=pc3, creator=self.u1)
+        response = self.client.get(reverse('polls:category', args=[self.pc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, future_poll.question)
+        self.assertContains(response, "No polls are available.")
+
+    def test_category_view_with_future_poll_and_past_poll(self):
+        """
+        Even if both past and future polls exist, only past polls should be
+        displayed.
+        """
+        pc1 = PollCategory.objects.create(name='Polls A', parent=self.pc)
+        pc2 = PollCategory.objects.create(name='Polls AB', parent=pc1)
+        pc3 = PollCategory.objects.create(name='Polls AC', parent=pc1)
+        pc4 = PollCategory.objects.create(name='Polls ABA', parent=pc2)
+        pc5 = PollCategory.objects.create(name='Polls ACA', parent=pc3)
+        pc6 = PollCategory.objects.create(name='Polls ACB', parent=pc3)
+        pc7 = PollCategory.objects.create(name='Polls ACBA', parent=pc6)
+        past_poll = self.create_poll(question="Past poll.", days=-30, category=pc3, creator=self.u1)
+        future_poll = self.create_poll(question="Future poll.", days=30, category=pc3, creator=self.u1)
+        response = self.client.get(reverse('polls:category', args=[self.pc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, future_poll.question)
+        self.assertContains(response, past_poll.question)
+
+    def test_category_view_with_two_past_polls(self):
+        """
+        The polls category page may display multiple polls.
+        """
+        pc1 = PollCategory.objects.create(name='Polls A', parent=self.pc)
+        pc2 = PollCategory.objects.create(name='Polls AB', parent=pc1)
+        pc3 = PollCategory.objects.create(name='Polls AC', parent=pc1)
+        pc4 = PollCategory.objects.create(name='Polls ABA', parent=pc2)
+        pc5 = PollCategory.objects.create(name='Polls ACA', parent=pc3)
+        pc6 = PollCategory.objects.create(name='Polls ACB', parent=pc3)
+        pc7 = PollCategory.objects.create(name='Polls ACBA', parent=pc6)
+        past_poll1 = self.create_poll(question="Past poll1.", days=-30, category=pc3, creator=self.u1)
+        past_poll2 = self.create_poll(question="Past poll2.", days=-29, category=pc4, creator=self.u1)
+        response = self.client.get(reverse('polls:category', args=[self.pc.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, past_poll1.question)
+        self.assertContains(response, past_poll2.question)
+
 
 
 class VoteViewTests(BaseTestCase):
